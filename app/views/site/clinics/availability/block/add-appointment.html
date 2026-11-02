@@ -1,0 +1,100 @@
+{% extends '../../../../layouts/layout.html' %}
+
+{% set pageName = "Add an appointment" %}
+
+{% block beforeContent %}
+  {{ backLink({ href: backHref }) }}
+{% endblock %}
+
+{% block content %}
+  <div class="nhsuk-grid-row">
+    <div class="nhsuk-grid-column-two-thirds">
+      {% if errors | length %}
+        {{ errorSummary({
+          titleText: "There is a problem",
+          errorList: errors
+        }) }}
+      {% endif %}
+
+      <span class="nhsuk-caption-l">{{ date | formatDate('EEEE d LLLL yyyy') }}</span>
+      <h1 class="nhsuk-heading-l">{{ pageName }}</h1>
+
+      {% include "./_summary.njk" %}
+
+      <form action="{{ formAction }}" method="post" novalidate>
+        {{ input({
+          label: { text: "Appointment type", classes: "nhsuk-label--s" },
+          id: "appointment-type",
+          name: "_appointmentType",
+          value: values.appointmentType,
+          errorMessage: { text: errorFor.appointmentType } if errorFor.appointmentType else undefined
+        }) }}
+
+        {{ input({
+          label: { text: "Patient name (optional)", classes: "nhsuk-label--s" },
+          id: "patient-name",
+          name: "_patientName",
+          value: values.patientName,
+          autocomplete: "off",
+          spellcheck: false
+        }) }}
+
+        {{ dateInput({
+          id: "dob",
+          namePrefix: "_dob",
+          fieldset: {
+            legend: { text: "Date of birth (optional)", classes: "nhsuk-fieldset__legend--s" }
+          },
+          hint: { text: "For example, 15 3 1984" },
+          errorMessage: { text: errorFor.dob } if errorFor.dob else undefined,
+          items: [
+            { name: "day", label: "Day", classes: "nhsuk-input--width-2" ~ (" nhsuk-input--error" if errorFor.dob else ""), value: values.dob.day if values.dob },
+            { name: "month", label: "Month", classes: "nhsuk-input--width-2" ~ (" nhsuk-input--error" if errorFor.dob else ""), value: values.dob.month if values.dob },
+            { name: "year", label: "Year", classes: "nhsuk-input--width-4" ~ (" nhsuk-input--error" if errorFor.dob else ""), value: values.dob.year if values.dob }
+          ]
+        }) }}
+
+        {{ warningCallout({
+          heading: "Contact details",
+          text: "Only add a person's contact details to this page if they've given you permission to do so."
+        }) }}
+
+        {{ input({
+          label: { text: "Mobile number (optional)", classes: "nhsuk-label--s" },
+          hint: { text: "We'll only use this to contact them about their appointment" },
+          id: "mobile",
+          name: "_mobile",
+          type: "tel",
+          value: values.mobile,
+          autocomplete: "off",
+          classes: "nhsuk-input--width-20"
+        }) }}
+
+        {{ input({
+          label: { text: "Landline number (optional)", classes: "nhsuk-label--s" },
+          hint: { text: "We'll only use this to contact them about their appointment" },
+          id: "landline",
+          name: "_landline",
+          type: "tel",
+          value: values.landline,
+          autocomplete: "off",
+          classes: "nhsuk-input--width-20"
+        }) }}
+
+        {{ input({
+          label: { text: "Email address (optional)", classes: "nhsuk-label--s" },
+          hint: { text: "We'll only use this to contact them about their appointment" },
+          id: "email",
+          name: "_email",
+          type: "email",
+          value: values.email,
+          autocomplete: "off",
+          spellcheck: false,
+          errorMessage: { text: errorFor.email } if errorFor.email else undefined
+        }) }}
+
+        {{ button({ text: "Add appointment" }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

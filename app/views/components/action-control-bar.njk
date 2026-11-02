@@ -27,6 +27,14 @@
         href: params.print
       }) }}
     {% endif %}
+
+    {% if params.blockTime %}
+      {{ button({
+        text: 'Block time',
+        classes: 'nhsuk-button--secondary nhsuk-button--small',
+        href: params.blockTime
+      }) }}
+    {% endif %}
     
     
   </div>

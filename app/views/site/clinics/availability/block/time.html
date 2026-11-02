@@ -1,0 +1,72 @@
+{% extends '../../../../layouts/layout.html' %}
+
+{% set pageName = "What time do you want to block out?" %}
+
+{% macro timeInput(id, name, legend, hint, value, error) %}
+  {{ dateInput({
+    id: id,
+    namePrefix: name,
+    fieldset: {
+      legend: { text: legend, classes: "nhsuk-fieldset__legend--s" }
+    },
+    hint: { text: hint },
+    errorMessage: { text: error } if error else undefined,
+    items: [
+      { name: "hour", classes: "nhsuk-input--width-2" ~ (" nhsuk-input--error" if error else ""), value: value.hour },
+      { name: "minute", classes: "nhsuk-input--width-2" ~ (" nhsuk-input--error" if error else ""), value: value.minute }
+    ]
+  }) }}
+{% endmacro %}
+
+{% block beforeContent %}
+  {{ backLink({ href: backHref }) }}
+{% endblock %}
+
+{% block content %}
+  <div class="nhsuk-grid-row">
+    <div class="nhsuk-grid-column-two-thirds">
+      {% if errors | length %}
+        {{ errorSummary({
+          titleText: "There is a problem",
+          errorList: errors
+        }) }}
+      {% endif %}
+
+      <span class="nhsuk-caption-l">{{ date | formatDate('EEEE d LLLL yyyy') }}{{ ' (today)' if date == today }}</span>
+      <h1 class="nhsuk-heading-l">{{ pageName }}</h1>
+
+      <form action="{{ formAction }}" method="post" novalidate>
+        {% if clinics | length > 1 %}
+          {% set clinicItems = [] %}
+          {% for clinic in clinics %}
+            {% set clinicItems = (clinicItems.push({
+              value: clinic.id,
+              text: clinic.label,
+              checked: clinic.id == clinicId
+            }), clinicItems) %}
+          {% endfor %}
+
+          {{ radios({
+            idPrefix: "clinic",
+            name: "_clinic",
+            fieldset: {
+              legend: {
+                text: "Which clinic do you want to block time out from?",
+                classes: "nhsuk-fieldset__legend--s"
+              }
+            },
+            errorMessage: { text: errorFor.clinic } if errorFor.clinic else undefined,
+            items: clinicItems
+          }) }}
+        {% elif clinics | length == 1 %}
+          <p>{{ clinics[0].label }}</p>
+        {% endif %}
+
+        {{ timeInput("start-time", "_start", "Start time", "For example, 12:00", start, errorFor.start) }}
+        {{ timeInput("end-time", "_end", "End time", "For example, 12:30", end, errorFor.end) }}
+
+        {{ button({ text: "Continue" }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

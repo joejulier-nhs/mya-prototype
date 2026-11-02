@@ -5,6 +5,7 @@ const { DateTime } = require('luxon');
 const { randomUUID } = require('crypto');
 
 const enhanceData = require('../helpers/enhanceData');
+const { buildDayRows } = require('../helpers/dayViewRows');
 const { buildCancelledBookingsSummary } = require('../helpers/cancelledBookingsSummary');
 const mergeDailyAvailability = require('../helpers/recurringToDailyAvailability');
 const sessionDataDefaults = require('../data/session-data-defaults');
@@ -1735,7 +1736,8 @@ router.use('/site/:id', (req, res, next) => {
   // Generate slots data for this site
   const slots = enhanceData({
     daily_availability: { [site_id]: effectiveDailyAvailability },
-    bookings: { [site_id]: siteBookings }
+    bookings: { [site_id]: siteBookings },
+    blocked_slots: { [site_id]: data.blocked_slots?.[site_id] || [] }
   });
 
   // Expose to templates
@@ -3049,12 +3051,42 @@ router.get('/site/:id/availability/day', (req, res) => {
     daySummary.unbookedAppointments = Math.max(0, daySummary.totalAppointments - daySummary.bookedAppointments);
   }
 
+  // Lazy require: day-schedule.js loads after this file in routes.js.
+  const { buildClinics, resolveFilters } = require('./day-schedule').helpers;
+  const daySlots = asArray(res.locals.slots?.[date]);
+  const clinics = buildClinics(daySlots, data.services);
+  const filters = resolveFilters(req, clinics);
+  const dayRows = buildDayRows({
+    slots: daySlots,
+    date,
+    today,
+    siteId: site_id,
+    bookings: data?.bookings?.[site_id] || {}
+  });
+  const visibleRows = dayRows.filter((row) => (
+    (!filters.bookedOnly || row.status === 'booked')
+    && (!filters.clinics.length || filters.clinics.includes(row.clinicId))
+  ));
+
   res.render('site/clinics/availability/day', {
     date,
     today,
     tomorrow,
     yesterday,
-    daySummary
+    daySummary,
+    dayRows: visibleRows,
+    hasDayRows: dayRows.length > 0,
+    showFilters: [{
+      value: 'booked',
+      text: `Booked appointments (${dayRows.filter((row) => row.status === 'booked').length})`,
+      checked: filters.bookedOnly
+    }],
+    clinicFilters: clinics.length > 1 ? clinics.map((clinic) => ({
+      value: clinic.id,
+      text: clinic.label,
+      checked: filters.clinics.includes(clinic.id)
+    })) : [],
+    blockSlotsBanner: req.flash('blockSlotsBanner')[0] || null
   });
 });
 

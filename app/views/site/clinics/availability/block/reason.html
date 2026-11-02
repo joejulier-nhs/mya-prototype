@@ -1,0 +1,42 @@
+{% extends '../../../../layouts/layout.html' %}
+
+{% set pageName = "What are you blocking time out for?" %}
+
+{% block beforeContent %}
+  {{ backLink({ href: backHref }) }}
+{% endblock %}
+
+{% block content %}
+  <div class="nhsuk-grid-row">
+    <div class="nhsuk-grid-column-two-thirds">
+      {% if error %}
+        {{ errorSummary({
+          titleText: "There is a problem",
+          errorList: [{ text: error, href: "#block-reason" }]
+        }) }}
+      {% endif %}
+
+      <form action="{{ formAction }}" method="post" novalidate>
+        {{ radios({
+          idPrefix: "block-reason",
+          name: "_reason",
+          fieldset: {
+            legend: {
+              html: '<span class="nhsuk-caption-l">' ~ (date | formatDate('EEEE d LLLL yyyy')) ~ (' (today)' if date == today else '') ~ '</span>' ~ pageName,
+              classes: "nhsuk-fieldset__legend--l",
+              isPageHeading: true
+            }
+          },
+          errorMessage: { text: error } if error else undefined,
+          items: [
+            { value: "break", text: "A break", checked: reason == 'break' },
+            { value: "appointment", text: "An appointment", checked: reason == 'appointment' },
+            { value: "other", text: "Something else", checked: reason == 'other' }
+          ]
+        }) }}
+
+        {{ button({ text: "Continue" }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

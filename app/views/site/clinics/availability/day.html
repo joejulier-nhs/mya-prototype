@@ -32,7 +32,20 @@
         })
       }}
       <h1 class="nhsuk-heading-xl">{{ pageName }}</h1>
-      {{ appActionControlBar({ siteId: site_id, print: '#' }) }}
+
+      {% if blockSlotsBanner %}
+        {{ notificationBanner({
+          type: "success",
+          html: '<p class="nhsuk-notification-banner__heading">' ~ (blockSlotsBanner | escape) ~ '</p>'
+        }) }}
+      {% endif %}
+
+      {% set canBlockTime = date >= today and ((daySummary.sessions or []) | length) > 0 %}
+      {{ appActionControlBar({
+        siteId: site_id,
+        print: '#',
+        blockTime: ('/site/' ~ site_id ~ '/availability/day/block?date=' ~ date) if canBlockTime else false
+      }) }}
 
       {{ pagination({
         previous: {
@@ -45,11 +58,84 @@
         }
       }) }}
 
+      {% macro blockedRow(slot, canCancel) %}
+            {% set block = slot.blocked %}
+            {% set blockTime = slot.datetime | nhsTime %}
+            <tr class="nhsuk-table__row" role="row">
+              <td class="nhsuk-table__cell">{{ blockTime }}</td>
+              <td class="nhsuk-table__cell">
+                {{ tag({ text: ("Blocked - appointment" if block.reason == 'appointment' else "Blocked"), classes: "nhsuk-tag--grey nhsuk-u-margin-bottom-1" }) }}<br>
+                {% if block.reason == 'appointment' %}
+                  {{ block.appointment.patientName }}
+                {% elif block.name %}
+                  {{ block.name }}
+                {% elif block.reason == 'other' %}
+                  {{ block.note or 'Something else' }}
+                {% else %}
+                  Break
+                {% endif %}
+              </td>
+              <td class="nhsuk-table__cell">{% if block.reason == 'appointment' and block.appointment.dob %}{{ block.appointment.dob | formatDate }}{% endif %}</td>
+              <td class="nhsuk-table__cell nhsuk-u-text-break-word">
+                {% if block.reason == 'appointment' %}
+                  {% set blockPhone = block.appointment.mobile or block.appointment.phone %}
+                  {% if blockPhone %}<p class="nhsuk-body nhsuk-u-margin-bottom-0">{{ blockPhone }}</p>{% endif %}
+                  {% if block.appointment.landline %}<p class="nhsuk-body-s nhsuk-u-margin-bottom-0">{{ block.appointment.landline }}</p>{% endif %}
+                  {% if block.appointment.email %}<p class="nhsuk-body-s nhsuk-u-margin-bottom-0">{{ block.appointment.email }}</p>{% endif %}
+                {% endif %}
+              </td>
+              <td class="nhsuk-table__cell">
+                {% if block.reason == 'appointment' %}{{ block.appointment.appointmentType }}{% endif %}
+              </td>
+              {% if canCancel %}
+              <td class="nhsuk-table__cell">
+                <a href="/site/{{ site_id }}/availability/day/unblock?date={{ date }}&_slot={{ slot.slot_id | urlencode }}">
+                  Undo
+                  <span class="nhsuk-u-visually-hidden"> blocked slot at {{ blockTime }}</span>
+                </a>
+              </td>
+              {% endif %}
+            </tr>
+      {% endmacro %}
+
+      {% macro bookingRow(booking, canCancel) %}
+            <tr class="nhsuk-table__row" role="row">
+              <td class="nhsuk-table__cell">{{ booking.datetime | nhsTime  }}</td>
+              <td class="nhsuk-table__cell">
+                {{ booking.name }}<br>
+                {{ booking.nhsNumber | nhsNumber | safe }}
+              </td>
+              <td class="nhsuk-table__cell">{{ booking.dob | formatDate }}</td>
+              <td class="nhsuk-table__cell nhsuk-u-text-break-word">
+                {% for key, value in booking.contact %}
+                {% if key !== 'phone' -%}
+                  <p class="nhsuk-body-s nhsuk-u-margin-bottom-0">{{ value }}</p>
+                {% else %}
+                  <p class="nhsuk-body nhsuk-u-margin-bottom-0">{{ value }}</p>
+                {% endif %}
+                {% endfor %}
+              </td>
+              <td class="nhsuk-table__cell">{{ data.services[booking.service].name }}</td>
+              {% if canCancel %}
+              <td class="nhsuk-table__cell">
+                <ul class="nhsuk-list nhsuk-u-margin-bottom-0">
+                  <li>
+                    <a href="/not-in-this-prototype">
+                      Cancel
+                      <span class="nhsuk-u-visually-hidden"> appointment for {{ booking.name }} at {{ booking.datetime | nhsTime }}</span>
+                    </a>
+                  </li>
+                </ul>
+              </td>
+              {% endif %}
+            </tr>
+      {% endmacro %}
+
       {% macro appointmentForToday(opts) %}
          {# calculate if there's any booked appointments of this type #}
         {% set hasBookedAppointments = false %}
         {% for slot in slots[date] %}
-          {% if slot.booking_status == opts.status or slot.booking_status in opts.status %}
+          {% if slot.booking_status == opts.status or slot.booking_status in opts.status or (opts.showBlocked and slot.blocked) %}
             {% set hasBookedAppointments = true %}
           {% endif %}
         {% endfor %}
@@ -75,38 +161,10 @@
             
 
             {% for slot in slots[date] %}
-            {% if slot.booking_status == opts.status or slot.booking_status in opts.status %}
-            {% set booking = data.bookings[site_id][slot.booking_id] %}
-            <tr class="nhsuk-table__row" role="row">
-              <td class="nhsuk-table__cell">{{ booking.datetime | nhsTime  }}</td>
-              <td class="nhsuk-table__cell">
-                {{ booking.name }}<br>
-                {{ booking.nhsNumber | nhsNumber | safe }}
-              </td>
-              <td class="nhsuk-table__cell">{{ booking.dob | formatDate }}</td>
-              <td class="nhsuk-table__cell nhsuk-u-text-break-word">
-                {% for key, value in booking.contact %}
-                {% if key !== 'phone' -%}
-                  <p class="nhsuk-body-s nhsuk-u-margin-bottom-0">{{ value }}</p>
-                {% else %}
-                  <p class="nhsuk-body nhsuk-u-margin-bottom-0">{{ value }}</p>
-                {% endif %}
-                {% endfor %}
-              </td>
-              <td class="nhsuk-table__cell">{{ data.services[booking.service].name }}</td>
-              {% if opts.canCancel %}
-              <td class="nhsuk-table__cell">
-                <ul class="nhsuk-list nhsuk-u-margin-bottom-0">
-                  <li>
-                    <a href="/not-in-this-prototype">
-                      Cancel
-                      <span class="nhsuk-u-visually-hidden"> appointment for {{ booking.name }} at {{ booking.datetime | nhsTime }}</span>
-                    </a>
-                  </li>
-                </ul>
-              </td>
-              {% endif %}
-            </tr>
+            {% if opts.showBlocked and slot.blocked %}
+              {{ blockedRow(slot, opts.canCancel) }}
+            {% elif slot.booking_status == opts.status or slot.booking_status in opts.status %}
+              {{ bookingRow(data.bookings[site_id][slot.booking_id], opts.canCancel) }}
             {% endif %}
             {% endfor %}
 
@@ -192,6 +250,7 @@
         {% endif %}
       {% endfor %}
 
+      {% if features.dayViewLegacy %}
       {{ tabs({ 
         items: [ 
         { 
@@ -201,7 +260,8 @@
             html: appointmentForToday({
               status: ['scheduled', 'orphaned'], 
               title: 'Scheduled appointments',
-              canCancel: true
+              canCancel: true,
+              showBlocked: true
             }) 
           } 
         }, 
@@ -218,6 +278,104 @@
           
         ] 
       }) }}
+      {% else %}
+      <form class="app-day-schedule-filters" action="/site/{{ site_id }}/availability/day" method="get" novalidate data-module="app-day-schedule-filters">
+        <input type="hidden" name="date" value="{{ date }}">
+        <input type="hidden" name="_filter" value="1">
+        <div class="app-day-schedule-filters__groups">
+          {{ checkboxes({
+            idPrefix: "show",
+            name: "_show",
+            classes: "nhsuk-checkboxes--small app-checkboxes--inline",
+            fieldset: {
+              legend: { text: "Show only", classes: "nhsuk-fieldset__legend--s" }
+            },
+            items: showFilters
+          }) }}
+
+          {% if clinicFilters | length %}
+            {{ checkboxes({
+              idPrefix: "clinic",
+              name: "_clinic",
+              classes: "nhsuk-checkboxes--small app-checkboxes--inline",
+              fieldset: {
+                legend: { text: "Clinics", classes: "nhsuk-fieldset__legend--s" }
+              },
+              items: clinicFilters
+            }) }}
+          {% endif %}
+        </div>
+        {{ button({
+          text: "Apply filters",
+          classes: "nhsuk-button--secondary nhsuk-button--small app-day-schedule-filters__submit"
+        }) }}
+      </form>
+
+      {% if not hasDayRows %}
+        <p>No clinics running on this day.</p>
+      {% elif not dayRows | length %}
+        <p>Nothing to show. Change the filters to see more of this day.</p>
+      {% else %}
+        <table class="nhsuk-table-responsive app-day-schedule" role="table">
+          <caption class="nhsuk-table__caption nhsuk-u-visually-hidden">Appointments for {{ date | formatDate('EEEE d LLLL yyyy') }}</caption>
+          <thead class="nhsuk-table__head" role="rowgroup">
+            <tr>
+              <th scope="col" class="nhsuk-table__header">Time</th>
+              <th scope="col" class="nhsuk-table__header">Name and NHS number</th>
+              <th scope="col" class="nhsuk-table__header">Date of birth</th>
+              <th scope="col" class="nhsuk-table__header">Contact details</th>
+              <th scope="col" class="nhsuk-table__header">Service</th>
+              <th scope="col" class="nhsuk-table__header">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="nhsuk-table__body">
+            {% for row in dayRows %}
+              {% if row.status == 'booked' %}
+                {{ bookingRow(row.booking, true) }}
+              {% elif row.status == 'blocked' %}
+                {{ blockedRow(row.slot, true) }}
+              {% else %}
+                {% set rowTime = row.slot.datetime | nhsTime %}
+                <tr class="nhsuk-table__row app-day-schedule__row--{{ row.status }}" role="row">
+                  <td class="nhsuk-table__cell">{{ rowTime }}</td>
+                  {% if row.status == 'cancelled' %}
+                    <td class="nhsuk-table__cell">
+                      {{ row.booking.name }}<br>
+                      {{ row.booking.nhsNumber | nhsNumber | safe }}<br>
+                      {{ tag({ text: "Cancelled", classes: "nhsuk-tag--red nhsuk-u-margin-top-1" }) }}
+                    </td>
+                    <td class="nhsuk-table__cell">{{ row.booking.dob | formatDate }}</td>
+                    <td class="nhsuk-table__cell nhsuk-u-text-break-word">
+                      {% for key, value in row.booking.contact %}
+                      {% if key !== 'phone' -%}
+                        <p class="nhsuk-body-s nhsuk-u-margin-bottom-0">{{ value }}</p>
+                      {% else %}
+                        <p class="nhsuk-body nhsuk-u-margin-bottom-0">{{ value }}</p>
+                      {% endif %}
+                      {% endfor %}
+                    </td>
+                    <td class="nhsuk-table__cell">{{ data.services[row.booking.service].name }}</td>
+                  {% else %}
+                    <td class="nhsuk-table__cell">Available</td>
+                    <td class="nhsuk-table__cell"></td>
+                    <td class="nhsuk-table__cell"></td>
+                    <td class="nhsuk-table__cell"></td>
+                  {% endif %}
+                  <td class="nhsuk-table__cell app-day-schedule__actions">
+                    {% if row.blockTimeHref %}
+                      <a href="{{ row.blockTimeHref }}">
+                        Block time
+                        <span class="nhsuk-u-visually-hidden"> at {{ rowTime }}</span>
+                      </a>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+      {% endif %}
 
 {# {
             label: "Clinics running today (" ~ clinicsRunningCount ~ ")",
@@ -229,4 +387,15 @@
 
     </div>  
   </div>
+{% endblock %}
+
+{% block pageScripts %}
+  <script>
+    (function () {
+      var form = document.querySelector('[data-module="app-day-schedule-filters"]');
+      if (!form) return;
+      form.querySelector('.app-day-schedule-filters__submit').style.display = 'none';
+      form.addEventListener('change', function () { form.submit(); });
+    })();
+  </script>
 {% endblock %}

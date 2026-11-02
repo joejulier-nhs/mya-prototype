@@ -1,0 +1,109 @@
+{% extends '../../../../layouts/layout.html' %}
+
+{% set pageName = "Select slots you want to block" %}
+
+{% block beforeContent %}
+  {{ backLink({ href: backHref }) }}
+{% endblock %}
+
+{% block content %}
+  {% if errors | length %}
+    {{ errorSummary({
+      titleText: "There is a problem",
+      errorList: errors
+    }) }}
+  {% endif %}
+
+  <span class="nhsuk-caption-l">{{ date | formatDate('EEEE d LLLL yyyy') }}{{ ' (today)' if date == today }}</span>
+  <h1 class="nhsuk-heading-l">{{ pageName }}</h1>
+
+  {% if clinics | length == 0 %}
+    <p>There are no slots left to block on this day.</p>
+    <p><a href="{{ backHref }}">Go back to the day view</a></p>
+  {% else %}
+  <form action="{{ formAction }}" method="post" novalidate>
+    <div class="nhsuk-grid-row">
+      <div class="nhsuk-grid-column-two-thirds">
+        <div class="nhsuk-form-group{{ ' nhsuk-form-group--error' if errorFor.slots }}">
+          <fieldset class="nhsuk-fieldset"{% if errorFor.slots %} aria-describedby="slots-error"{% endif %}>
+            <legend class="nhsuk-fieldset__legend nhsuk-u-visually-hidden">Slots</legend>
+            {% if errorFor.slots %}
+              {{ errorMessage({ id: "slots-error", text: errorFor.slots }) }}
+            {% endif %}
+
+            {% for clinic in clinics %}
+              <h2 class="nhsuk-heading-s nhsuk-u-margin-bottom-3">Clinic: {{ clinic.from | nhsTime }} to {{ clinic.until | nhsTime }}</h2>
+
+              <ul class="app-slot-list" role="list">
+                {% for row in clinic.rows %}
+                  {% set placeText = (' (place ' ~ row.capacityIndex ~ ' of ' ~ row.capacity ~ ')') if row.capacity > 1 else '' %}
+                  <li class="app-slot-list__item app-slot-list__item--{{ row.status }}">
+                    {% if row.status == 'available' %}
+                      <div class="nhsuk-checkboxes__item">
+                        <input class="nhsuk-checkboxes__input" id="{{ row.inputId }}" name="_slots" type="checkbox" value="{{ row.id }}"{{ ' checked' if row.id in selected }}>
+                        <label class="nhsuk-label nhsuk-checkboxes__label" for="{{ row.inputId }}">
+                          <strong>{{ row.from }}</strong> <span class="nhsuk-u-secondary-text-colour">to {{ row.until }}</span>
+                          <span class="nhsuk-u-visually-hidden">{{ placeText }}</span>
+                        </label>
+                      </div>
+                    {% else %}
+                      <div class="app-slot-list__static">
+                        <span class="app-slot-list__time"><strong>{{ row.from }}</strong> <span class="nhsuk-u-secondary-text-colour">to {{ row.until }}</span><span class="nhsuk-u-visually-hidden">{{ placeText }}</span></span>
+                        {% if row.status == 'booked' %}
+                          {{ tag({ text: "Booked", classes: "nhsuk-tag--blue" }) }}
+                          <span class="app-slot-list__detail">{{ row.patientName }}{% if row.serviceName %}<span class="nhsuk-u-secondary-text-colour">, {{ row.serviceName }}</span>{% endif %}</span>
+                        {% else %}
+                          {{ tag({ text: row.blockedTag, classes: "nhsuk-tag--grey" }) }}
+                          <span class="app-slot-list__detail">{{ row.blockedLabel }}</span>
+                        {% endif %}
+                      </div>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            {% endfor %}
+          </fieldset>
+        </div>
+      </div>
+
+      <div class="nhsuk-grid-column-one-third">
+        <div class="app-block-slots-panel">
+          {% set noteHtml %}
+            {{ textarea({
+              name: "_note",
+              id: "block-note",
+              rows: 2,
+              value: note,
+              label: { text: "Reason (optional)" }
+            }) }}
+          {% endset %}
+
+          {{ radios({
+            idPrefix: "block-reason",
+            name: "_reason",
+            fieldset: {
+              legend: {
+                text: "What are you blocking this time for?",
+                classes: "nhsuk-fieldset__legend--s"
+              }
+            },
+            errorMessage: { text: errorFor.reason } if errorFor.reason else undefined,
+            items: [
+              { value: "break", text: "A break", checked: reason == 'break' },
+              { value: "appointment", text: "An appointment", checked: reason == 'appointment' },
+              {
+                value: "other",
+                text: "Something else",
+                checked: reason == 'other',
+                conditional: { html: noteHtml }
+              }
+            ]
+          }) }}
+
+          {{ button({ text: "Continue" }) }}
+        </div>
+      </div>
+    </div>
+  </form>
+  {% endif %}
+{% endblock %}

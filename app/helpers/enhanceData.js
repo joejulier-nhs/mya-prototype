@@ -52,6 +52,12 @@ function bookingBucketKeysForBooking(booking, timezone) {
   return keys;
 }
 
+const ACTIVE_BOOKING_STATUSES = ['scheduled', 'orphaned'];
+
+function buildSlotId({ sessionKey, slotKey, capacityIndex }) {
+  return `${sessionKey}|${slotKey}|${capacityIndex}`;
+}
+
 /**
  * Build slot structures for each site and date.
  * - Expands all sessions into time slots.
@@ -59,15 +65,22 @@ function bookingBucketKeysForBooking(booking, timezone) {
  *
  * @param {Object} options.daily_availability - { [site_id]: { [date]: { sessions: [...] } } }
  * @param {Object} options.bookings - { [site_id]: { [bookingId]: bookingData } }
+ * @param {Object} [options.blocked_slots] - { [site_id]: [{ slotId, reason, ... }] }
  * @param {String} [options.timezone='Europe/London']
  *
  * @returns {Object} { [site_id]: { [date]: [slot, slot, ...] } }
  */
-function enhanceData({ daily_availability, bookings, timezone = 'Europe/London' }) {
+function enhanceData({ daily_availability, bookings, blocked_slots, timezone = 'Europe/London' }) {
   const slots = {};
 
   for (const [site_id, availability] of Object.entries(daily_availability || {})) {
     slots[site_id] = {};
+
+    const blocksBySlotId = new Map(
+      (Array.isArray(blocked_slots?.[site_id]) ? blocked_slots[site_id] : [])
+        .filter((block) => block?.slotId)
+        .map((block) => [block.slotId, block])
+    );
 
     const bookingBuckets = new Map();
     const bookingById = new Map();
@@ -172,8 +185,16 @@ function enhanceData({ daily_availability, bookings, timezone = 'Europe/London' 
             };
 
             const booking = assignBookingToSlot(slotDescriptor);
+            const slotId = buildSlotId({
+              sessionKey: session.id || session.recurringId || generateGroupId(session),
+              slotKey,
+              capacityIndex: c + 1
+            });
+            const hasActiveBooking = !!booking && ACTIVE_BOOKING_STATUSES.includes(booking.status);
 
             slots[site_id][date].push({
+              slot_id: slotId,
+              blocked: hasActiveBooking ? null : (blocksBySlotId.get(slotId) || null),
               datetime,
               slotKey,
               date,
@@ -205,3 +226,4 @@ function enhanceData({ daily_availability, bookings, timezone = 'Europe/London' 
 }
 
 module.exports = enhanceData;
+module.exports.ACTIVE_BOOKING_STATUSES = ACTIVE_BOOKING_STATUSES;

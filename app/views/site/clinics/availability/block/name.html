@@ -1,0 +1,41 @@
+{% extends '../../../../layouts/layout.html' %}
+
+{% set pageName = "Name the blocked out time" %}
+
+{% block beforeContent %}
+  {{ backLink({ href: backHref }) }}
+{% endblock %}
+
+{% block content %}
+  <div class="nhsuk-grid-row">
+    <div class="nhsuk-grid-column-two-thirds">
+      {% if error %}
+        {{ errorSummary({
+          titleText: "There is a problem",
+          errorList: [{ text: error, href: "#block-name" }]
+        }) }}
+      {% endif %}
+
+      <span class="nhsuk-caption-l">{{ date | formatDate('EEEE d LLLL yyyy') }}</span>
+      <h1 class="nhsuk-heading-l">{{ pageName }}</h1>
+
+      {% include "./_summary.njk" %}
+
+      <form action="{{ formAction }}" method="post" novalidate>
+        {{ input({
+          label: {
+            text: "Name of blocked out time" ~ ("" if required else " (optional)"),
+            classes: "nhsuk-label--s"
+          },
+          hint: { text: "Add a short name. For example, morning break." },
+          id: "block-name",
+          name: "_name",
+          value: name,
+          errorMessage: { text: error } if error else undefined
+        }) }}
+
+        {{ button({ text: "Block out time" }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

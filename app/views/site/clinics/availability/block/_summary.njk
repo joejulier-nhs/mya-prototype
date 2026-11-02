@@ -1,0 +1,8 @@
+{% set summaryHtml %}
+  <p>You're blocking out <strong>{{ summary.from }} to {{ summary.until }}</strong> from {{ summary.clinicLabel }}{% if summary.capacity > 1 %} for 1 vaccinator{% endif %}.</p>
+  {% if summary.rounded %}
+    <p>We've changed the times you entered to match the {{ summary.slotLength }} minute appointment slots.</p>
+  {% endif %}
+{% endset %}
+
+{{ insetText({ html: summaryHtml }) }}

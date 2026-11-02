@@ -25,6 +25,9 @@ router.use(siteLevelMiddleware());
 router.use('/', require('./routes/base'));
 router.use('/', require('./routes/change-session'));
 router.use('/', require('./routes/cancel-a-date-range'));
+router.use('/', require('./routes/block-time'));
+router.use('/', require('./routes/block-slots'));
+router.use('/', require('./routes/day-schedule'));
 router.use('/', require('./routes/design-system-addons'));
 router.use('/', require('../map/router'));
 

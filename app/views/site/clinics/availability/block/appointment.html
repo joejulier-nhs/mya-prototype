@@ -1,0 +1,79 @@
+{% extends '../../../../layouts/layout.html' %}
+
+{% set pageName = "Add appointment details" %}
+
+{% block beforeContent %}
+  {{ backLink({ href: backHref }) }}
+{% endblock %}
+
+{% block content %}
+  <div class="nhsuk-grid-row">
+    <div class="nhsuk-grid-column-two-thirds">
+      {% if errors | length %}
+        {{ errorSummary({
+          titleText: "There is a problem",
+          errorList: errors
+        }) }}
+      {% endif %}
+
+      <span class="nhsuk-caption-l">Blocking {{ slotCount }} slot{{ 's' if slotCount != 1 }} on {{ date | formatDate('EEEE d LLLL yyyy') }}</span>
+      <h1 class="nhsuk-heading-l">{{ pageName }}</h1>
+
+      <form action="{{ formAction }}" method="post" novalidate>
+        {{ input({
+          label: { text: "Appointment type" },
+          id: "appointment-type",
+          name: "_appointmentType",
+          value: values.appointmentType,
+          errorMessage: { text: errorFor.appointmentType } if errorFor.appointmentType else undefined
+        }) }}
+
+        {{ input({
+          label: { text: "Patient name (optional)" },
+          id: "patient-name",
+          name: "_patientName",
+          value: values.patientName,
+          autocomplete: "off",
+          spellcheck: false
+        }) }}
+
+        {{ dateInput({
+          id: "dob",
+          namePrefix: "_dob",
+          fieldset: {
+            legend: { text: "Date of birth (optional)" }
+          },
+          hint: { text: "For example, 15 3 1984" },
+          errorMessage: { text: errorFor.dob } if errorFor.dob else undefined,
+          items: [
+            { name: "day", label: "Day", classes: "nhsuk-input--width-2" ~ (" nhsuk-input--error" if errorFor.dob else ""), value: values.dob.day },
+            { name: "month", label: "Month", classes: "nhsuk-input--width-2" ~ (" nhsuk-input--error" if errorFor.dob else ""), value: values.dob.month },
+            { name: "year", label: "Year", classes: "nhsuk-input--width-4" ~ (" nhsuk-input--error" if errorFor.dob else ""), value: values.dob.year }
+          ]
+        }) }}
+
+        {{ input({
+          label: { text: "Contact number (optional)" },
+          id: "phone",
+          name: "_phone",
+          type: "tel",
+          value: values.phone,
+          autocomplete: "off",
+          classes: "nhsuk-input--width-20"
+        }) }}
+
+        {{ input({
+          label: { text: "Email address (optional)" },
+          id: "email",
+          name: "_email",
+          type: "email",
+          value: values.email,
+          autocomplete: "off",
+          spellcheck: false
+        }) }}
+
+        {{ button({ text: "Continue" }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,206 @@
+{% extends '../../../layouts/layout.html' %}
+{% from '../../../components/secondary-navigation.njk' import appSecondaryNavigation %}
+{% from '../../../components/action-control-bar.njk' import appActionControlBar %}
+
+{% set pageName = (date | formatDate('EEEE, d LLLL yyyy')) ~ (date == today and ' (today)' or '') %}
+
+{% block content %}
+
+  <div class="nhsuk-grid-row">
+    <div class="nhsuk-grid-column-full">
+      {{
+        appSecondaryNavigation({
+          items: [
+            {
+              text: 'Day view',
+              href: '/site/' ~ site_id ~ '/availability/day/schedule',
+              current: true
+            },
+            {
+              text: 'Week view',
+              href: '/site/' ~ site_id ~ '/availability/week'
+            },
+            {
+              text: 'Month view',
+              href: '/site/' ~ site_id ~ '/availability/month'
+            },
+            {
+              text: 'Create and manage clinics',
+              href: '/site/' ~ site_id ~ '/clinics'
+            }
+          ]
+        })
+      }}
+      <h1 class="nhsuk-heading-xl">{{ pageName }}</h1>
+
+      {% if blockSlotsBanner %}
+        {{ notificationBanner({
+          type: "success",
+          html: '<p class="nhsuk-notification-banner__heading">' ~ (blockSlotsBanner | escape) ~ '</p>'
+        }) }}
+      {% endif %}
+
+      {{ appActionControlBar({
+        siteId: site_id,
+        print: '#',
+        blockTime: ('/site/' ~ site_id ~ '/availability/day/block?date=' ~ date ~ '&_view=schedule') if canBlockTime else false
+      }) }}
+
+      <form class="app-day-schedule-filters" action="/site/{{ site_id }}/availability/day/schedule" method="get" novalidate data-module="app-day-schedule-filters">
+        <input type="hidden" name="date" value="{{ date }}">
+        <input type="hidden" name="_filter" value="1">
+        <div class="app-day-schedule-filters__groups">
+          {{ checkboxes({
+            idPrefix: "show",
+            name: "_show",
+            classes: "nhsuk-checkboxes--small app-checkboxes--inline",
+            fieldset: {
+              legend: {
+                text: "Show only",
+                classes: "nhsuk-fieldset__legend--s"
+              }
+            },
+            items: showFilters
+          }) }}
+
+          {% if clinicFilters | length %}
+            {{ checkboxes({
+              idPrefix: "clinic",
+              name: "_clinic",
+              classes: "nhsuk-checkboxes--small app-checkboxes--inline",
+              fieldset: {
+                legend: {
+                  text: "Clinics",
+                  classes: "nhsuk-fieldset__legend--s"
+                }
+              },
+              items: clinicFilters
+            }) }}
+          {% endif %}
+        </div>
+        {{ button({
+          text: "Apply filters",
+          classes: "nhsuk-button--secondary nhsuk-button--small app-day-schedule-filters__submit"
+        }) }}
+      </form>
+
+      {% if not hasClinics and not hasRows %}
+        <p>No clinics running on this day.</p>
+      {% elif not rows | length %}
+        <p>Nothing to show. Change the filters to see more of this day.</p>
+      {% else %}
+      <form action="/site/{{ site_id }}/availability/day/block" method="get" novalidate>
+        <input type="hidden" name="date" value="{{ date }}">
+        <input type="hidden" name="_view" value="schedule">
+
+        <table class="nhsuk-table-responsive app-day-schedule" role="table">
+          <caption class="nhsuk-table__caption nhsuk-u-visually-hidden">Schedule for {{ date | formatDate('EEEE d LLLL yyyy') }}</caption>
+          <thead class="nhsuk-table__head" role="rowgroup">
+            <tr class="nhsuk-table__row" role="row">
+              <th scope="col" class="nhsuk-table__header app-day-schedule__select" role="columnheader"><span class="nhsuk-u-visually-hidden">Select</span></th>
+              <th scope="col" class="nhsuk-table__header" role="columnheader">Time</th>
+              <th scope="col" class="nhsuk-table__header" role="columnheader">Details</th>
+              <th scope="col" class="nhsuk-table__header" role="columnheader">Contact details</th>
+              <th scope="col" class="nhsuk-table__header" role="columnheader">Service</th>
+              <th scope="col" class="nhsuk-table__header" role="columnheader">Action</th>
+            </tr>
+          </thead>
+          <tbody class="nhsuk-table__body">
+            {% for row in rows %}
+              {% set timeText = row.from %}
+              <tr class="nhsuk-table__row app-day-schedule__row--{{ row.status }}" role="row">
+                <td class="nhsuk-table__cell app-day-schedule__select" role="cell">
+                  {% if row.selectable %}
+                    <div class="nhsuk-checkboxes nhsuk-checkboxes--small">
+                      <div class="nhsuk-checkboxes__item">
+                        <input class="nhsuk-checkboxes__input" id="{{ row.inputId }}" name="_slots" type="checkbox" value="{{ row.slotId }}">
+                        <label class="nhsuk-label nhsuk-checkboxes__label" for="{{ row.inputId }}">
+                          <span class="nhsuk-u-visually-hidden">Select slot {{ timeText }}{{ ' (' ~ row.place ~ ')' if row.place }}</span>
+                        </label>
+                      </div>
+                    </div>
+                  {% endif %}
+                </td>
+                <td class="nhsuk-table__cell app-day-schedule__time" role="cell">
+                  <span class="nhsuk-table-responsive__heading" aria-hidden="true">Time </span>
+                  <span>{{ timeText }}{% if row.place %}<span class="nhsuk-u-visually-hidden"> ({{ row.place }})</span>{% endif %}</span>
+                </td>
+                <td class="nhsuk-table__cell nhsuk-u-text-break-word" role="cell">
+                  <span class="nhsuk-table-responsive__heading" aria-hidden="true">Details </span>
+                  <span>
+                    {% if row.status == 'available' %}
+                      Available
+                    {% elif row.status == 'blocked' %}
+                      <span class="app-day-schedule__tag">{{ tag({ text: row.blockTag, classes: "nhsuk-tag--grey" }) }}</span>
+                      {{ row.blockLabel }}
+                    {% else %}
+                      {% if row.status == 'cancelled' %}
+                        <span class="app-day-schedule__tag">{{ tag({ text: "Cancelled", classes: "nhsuk-tag--red" }) }}</span>
+                      {% endif %}
+                      {{ row.patientName }}{% if row.nhsNumber %}<br>{{ row.nhsNumber | nhsNumber | safe }}{% endif %}
+                    {% endif %}
+                  </span>
+                </td>
+                <td class="nhsuk-table__cell nhsuk-u-text-break-word" role="cell">
+                  <span class="nhsuk-table-responsive__heading" aria-hidden="true">Contact details </span>
+                  <span>
+                    {% for line in row.contact %}
+                      <span class="{{ 'nhsuk-body' if line.primary else 'nhsuk-body-s' }} nhsuk-u-margin-bottom-0 app-day-schedule__contact">{{ line.value }}</span>
+                    {% endfor %}
+                  </span>
+                </td>
+                <td class="nhsuk-table__cell" role="cell">
+                  <span class="nhsuk-table-responsive__heading" aria-hidden="true">Service </span>
+                  <span>{{ row.service }}</span>
+                </td>
+                <td class="nhsuk-table__cell" role="cell">
+                  <span class="nhsuk-table-responsive__heading" aria-hidden="true">Action </span>
+                  {% if row.actions | length %}
+                    <ul class="nhsuk-list nhsuk-u-margin-bottom-0">
+                      {% for action in row.actions %}
+                        <li class="nhsuk-u-margin-bottom-1">
+                          <a href="{{ action.href }}">{{ action.text }}<span class="nhsuk-u-visually-hidden"> {{ action.hidden }}</span></a>
+                        </li>
+                      {% endfor %}
+                    </ul>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        {% if hasSelectable %}
+          {{ button({
+            text: "Block selected slots",
+            classes: "nhsuk-button--secondary"
+          }) }}
+        {% endif %}
+      </form>
+      {% endif %}
+
+      {{ pagination({
+        previous: {
+          labelText: (yesterday | formatDate('EEE, d LLL')),
+          href: "/site/"~site_id~"/availability/day/schedule?date="~yesterday
+        },
+        next: {
+          labelText: (tomorrow | formatDate('EEE, d LLL')),
+          href: "/site/"~site_id~"/availability/day/schedule?date="~tomorrow
+        }
+      }) }}
+
+    </div>
+  </div>
+{% endblock %}
+
+{% block pageScripts %}
+  <script>
+    (function () {
+      var form = document.querySelector('[data-module="app-day-schedule-filters"]');
+      if (!form) return;
+      form.querySelector('.app-day-schedule-filters__submit').style.display = 'none';
+      form.addEventListener('change', function () { form.submit(); });
+    })();
+  </script>
+{% endblock %}
